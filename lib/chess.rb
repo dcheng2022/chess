@@ -44,13 +44,13 @@ class Chess
 end
 
 class Player
-  def initialize(name, color)
-    @name = name
+  def initialize(board, name, color)
+    @board = board
+    @name = name.capitalize
     @color = color
   end
 
   def validate_input
-    print "#{name}'s turn: "
     loop do
       input = gets.chomp
       return input.split('').map(&:to_i) if /[1-8]{2}/.match?(input)
@@ -59,7 +59,20 @@ class Player
     end
   end
 
+  def select_piece
+    puts "#{name}'s turn"
+    print "Enter location to select piece: "
+    loop do
+      pos = validate_input
+      piece = board.space_filled?(pos)
+      return piece if piece 
+      #&& piece.color == color
+
+      puts 'Invalid location entered'
+    end
+  end
+
   private
 
-  attr_reader :name
+  attr_reader :name, :board
 end
