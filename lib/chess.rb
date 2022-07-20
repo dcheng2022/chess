@@ -6,6 +6,14 @@ class Chess
     fill_board
   end
 
+  def space_filled?(pos)
+    x_pos = pos[0] - 1
+    y_pos = 8 - pos[1]
+    return true unless board[y_pos][x_pos] == ' '
+
+    false
+  end
+
   #private
 
   attr_accessor :board
