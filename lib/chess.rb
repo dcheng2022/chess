@@ -20,11 +20,19 @@ class Chess
   attr_accessor :board
 
   def fill_board
-    piece_array = %w[r k b q k b k r]
+    piece_array = [Rook, Knight, Bishop, Queen, King, Bishop, Knight, Rook]
     board.each_with_index do |row, y_idx|
       8.times do |x_idx|
-        row[x_idx] = 'p' if [1, 6].include?(y_idx)
-        row[x_idx] = piece_array[x_idx] if [0, 7].include?(y_idx)
+        case y_idx
+        when 0
+          row[x_idx] = piece_array[x_idx].new('Black', [8 - y_idx, x_idx + 1])
+        when 1
+          row[x_idx] = Pawn.new('Black', [8 - y_idx, x_idx + 1])
+        when 6
+          row[x_idx] = Pawn.new('White', [8 - y_idx, x_idx + 1])
+        when 7
+          row[x_idx] = piece_array[x_idx].new('White', [8 - y_idx, x_idx + 1])
+        end
       end
     end
   end
@@ -34,7 +42,7 @@ class Chess
     board.each_with_index do |row, y_idx|
       print "#{8 - y_idx}  | "
       row.each do |space|
-        message = space == ' ' ? space : space
+        message = space == ' ' ? space : space.name
         print "#{message} | "
       end
       puts "\n   —————————————————————————————————"
@@ -65,8 +73,7 @@ class Player
     loop do
       pos = validate_input
       piece = board.space_filled?(pos)
-      return piece if piece 
-      #&& piece.color == color
+      return piece if piece && piece.color == color
 
       puts 'Invalid location entered'
     end
@@ -74,33 +81,56 @@ class Player
 
   private
 
-  attr_reader :name, :board
+  attr_reader :board, :name, :color
 end
 
 class Piece
-  attr_reader :color
+  attr_reader :color, :name
 
-  def initialize(name, color, pos)
-    @name = name
+  def initialize(color, pos)
     @color = color
-    @pso = pos
+    @pos = pos
   end
 end
 
 class Pawn < Piece
+  def initialize(color, pos)
+    super(color, pos)
+    @name = 'P'
+  end
 end
 
 class Rook < Piece
+  def initialize(color, pos)
+    super(color, pos)
+    @name = 'R'
+  end
 end
 
 class Knight < Piece
+  def initialize(color, pos)
+    super(color, pos)
+    @name = 'K'
+  end
 end
 
 class Bishop < Piece
+  def initialize(color, pos)
+    super(color, pos)
+    @name = 'B'
+  end
 end
 
 class Queen < Piece
+  def initialize(color, pos)
+    super(color, pos)
+    @name = 'Q'
+  end
 end
 
 class King < Piece
+  def initialize(color, pos)
+    super(color, pos)
+    @name = 'K'
+  end
 end
