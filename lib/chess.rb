@@ -21,14 +21,14 @@ class Chess
   end
 
   def print_board
-    puts '   ---------------------------------'
+    puts '   —————————————————————————————————'
     board.each_with_index do |row, y_idx|
       print "#{8 - y_idx}  | "
       row.each do |space|
         message = space == ' ' ? space : space
         print "#{message} | "
       end
-      puts "\n   ---------------------------------"
+      puts "\n   —————————————————————————————————"
     end
     puts '     1   2   3   4   5   6   7   8'
   end
