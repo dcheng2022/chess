@@ -9,7 +9,8 @@ class Chess
   def space_filled?(pos)
     x_pos = pos[0] - 1
     y_pos = 8 - pos[1]
-    return true unless board[y_pos][x_pos] == ' '
+    piece = board[y_pos][x_pos]
+    return piece unless piece == ' '
 
     false
   end
