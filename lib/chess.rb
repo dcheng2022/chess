@@ -61,7 +61,7 @@ class Player
 
   def select_piece
     puts "#{name}'s turn"
-    print "Enter location to select piece: "
+    print 'Enter location to select piece: '
     loop do
       pos = validate_input
       piece = board.space_filled?(pos)
@@ -75,4 +75,14 @@ class Player
   private
 
   attr_reader :name, :board
+end
+
+class Piece
+  attr_reader :color
+
+  def initialize(name, color, pos)
+    @name = name
+    @color = color
+    @pso = pos
+  end
 end
