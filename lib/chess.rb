@@ -44,7 +44,7 @@ class Player
     print "#{name}'s turn: "
     loop do
       input = gets.chomp
-      return input.split('').map(&:to_i) if /[1-8]{2}/.match?(input) && ('11'..'88').include?(input)
+      return input.split('').map(&:to_i) if /[1-8]{2}/.match?(input)
 
       puts 'Please enter a two-digit number in XY format.'
     end
