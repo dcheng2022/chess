@@ -104,6 +104,16 @@ class Rook < Piece
   def initialize(color, pos)
     super(color, pos)
     @name = 'R'
+    @shift_set = create_shifts
+  end
+
+  def create_shifts
+    temp = []
+    (1..7).each do |num|
+      temp << [0 - num, 0]
+      temp << [num, 0]
+    end
+    temp.concat(temp.map(&:rotate))
   end
 end
 
@@ -148,6 +158,3 @@ class King < Piece
     temp.uniq
   end
 end
-
-knight = Knight.new('white', [2, 1])
-p knight.create_shifts
