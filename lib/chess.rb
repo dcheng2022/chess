@@ -111,6 +111,13 @@ class Knight < Piece
   def initialize(color, pos)
     super(color, pos)
     @name = 'K'
+    @shift_set = create_shifts
+  end
+
+  def create_shifts
+    temp = []
+    [-2, -1, 1, 2].permutation(2) { |perm| temp << perm }
+    temp.reject { |perm| perm[0].abs == perm[1].abs }
   end
 end
 
@@ -142,3 +149,5 @@ class King < Piece
   end
 end
 
+knight = Knight.new('white', [2, 1])
+p knight.create_shifts
