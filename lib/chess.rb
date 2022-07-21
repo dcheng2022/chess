@@ -97,7 +97,16 @@ class Pawn < Piece
   def initialize(color, pos)
     super(color, pos)
     @name = 'P'
-    @shift_set = [[0, 1], [0, -1]]
+    @shift_set = create_shifts
+  end
+
+  def create_shifts
+    case color
+    when 'White'
+      [0, 1]
+    when 'Black'
+      [0, -1]
+    end
   end
 end
 
