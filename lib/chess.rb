@@ -97,6 +97,7 @@ class Pawn < Piece
   def initialize(color, pos)
     super(color, pos)
     @name = 'P'
+    @shift_set = [[0, 1], [0, -1]]
   end
 end
 
