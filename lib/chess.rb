@@ -7,7 +7,6 @@ class Chess
   end
 
   def space_filled?(pos)
-    binding.pry
     x_pos = pos[0] - 1
     y_pos = 8 - pos[1]
     piece = board[y_pos][x_pos]
@@ -86,7 +85,7 @@ class Player
 end
 
 class Piece
-  attr_reader :color, :name
+  attr_reader :color, :name, :shift_set
 
   def initialize(color, pos)
     @color = color
@@ -133,5 +132,13 @@ class King < Piece
   def initialize(color, pos)
     super(color, pos)
     @name = 'K'
+    @shift_set = create_shifts
+  end
+
+  def create_shifts
+    temp = []
+    [-1, -1, 0, 1, 1].permutation(2) { |perm| temp << perm }
+    temp.uniq
   end
 end
+
