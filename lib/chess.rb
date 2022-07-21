@@ -7,6 +7,7 @@ class Chess
   end
 
   def space_filled?(pos)
+    binding.pry
     x_pos = pos[0] - 1
     y_pos = 8 - pos[1]
     piece = board[y_pos][x_pos]
@@ -55,7 +56,7 @@ class Player
   def initialize(board, name, color)
     @board = board
     @name = name.capitalize
-    @color = color
+    @color = color.capitalize
   end
 
   def validate_input
@@ -75,7 +76,7 @@ class Player
       piece = board.space_filled?(pos)
       return piece if piece && piece.color == color
 
-      puts 'Invalid location entered'
+      puts 'Invalid location entered.'
     end
   end
 
