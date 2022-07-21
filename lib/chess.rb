@@ -154,6 +154,14 @@ class Queen < Piece
   def initialize(color, pos)
     super(color, pos)
     @name = 'Q'
+    @shift_set = create_shifts
+  end
+
+  def create_shifts
+    temp = []
+    temp_rook = Rook.new(nil, nil)
+    temp_bishop = Bishop.new(nil, nil)
+    temp_rook.shift_set.concat(temp_bishop.shift_set)
   end
 end
 
@@ -170,6 +178,3 @@ class King < Piece
     temp.uniq
   end
 end
-
-bishop = Bishop.new('black', [2, 8])
-pp bishop.shift_set
