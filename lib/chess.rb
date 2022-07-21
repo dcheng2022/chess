@@ -135,6 +135,18 @@ class Bishop < Piece
   def initialize(color, pos)
     super(color, pos)
     @name = 'B'
+    @shift_set = create_shifts
+  end
+
+  def create_shifts
+    temp = []
+    (1..7).each do |num|
+      temp << [0 - num, 0 - num]
+      temp << [num, num]
+      temp << [num, 0 - num]
+      temp << [0 - num, num]
+    end
+    temp
   end
 end
 
@@ -158,3 +170,6 @@ class King < Piece
     temp.uniq
   end
 end
+
+bishop = Bishop.new('black', [2, 8])
+pp bishop.shift_set
