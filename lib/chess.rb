@@ -25,13 +25,13 @@ class Chess
       8.times do |x_idx|
         case y_idx
         when 0
-          row[x_idx] = piece_array[x_idx].new('Black', [8 - y_idx, x_idx + 1])
+          row[x_idx] = piece_array[x_idx].new(self, 'Black', [x_idx + 1, 8 - y_idx])
         when 1
-          row[x_idx] = Pawn.new('Black', [8 - y_idx, x_idx + 1])
+          row[x_idx] = Pawn.new(self, 'Black', [x_idx + 1, 8 - y_idx])
         when 6
-          row[x_idx] = Pawn.new('White', [8 - y_idx, x_idx + 1])
+          row[x_idx] = Pawn.new(self, 'White', [x_idx + 1, 8 - y_idx])
         when 7
-          row[x_idx] = piece_array[x_idx].new('White', [8 - y_idx, x_idx + 1])
+          row[x_idx] = piece_array[x_idx].new(self, 'White', [x_idx + 1, 8 - y_idx])
         end
       end
     end
@@ -85,17 +85,44 @@ class Player
 end
 
 class Piece
-  attr_reader :color, :name, :shift_set
+  attr_reader :color, :pos, :shift_set, :name
 
-  def initialize(color, pos)
+  def initialize(board, color, pos)
+    @board = board
     @color = color
     @pos = pos
+  end
+
+  def find_moves
+    potential_moves = []
+    shift_set.each do |shift|
+      potential_moves << [pos[0] + shift[0], pos[1] + shift[1]]
+    end
+    moves_in_bounds = find_in_bounds(potential_moves)
+    valid_moves = []
+    moves_in_bounds.each do |move|
+      piece = board.space_filled?(move)
+      valid_moves << move unless piece && piece.color == color
+    end
+    valid_moves
+  end
+
+  private
+
+  attr_reader :board
+
+  def find_in_bounds(moves)
+    in_bounds = []
+    moves.each do |move|
+      in_bounds << move if move.all? { |coord| (1..8).include?(coord) }
+    end
+    in_bounds
   end
 end
 
 class Pawn < Piece
-  def initialize(color, pos)
-    super(color, pos)
+  def initialize(board, color, pos)
+    super(board, color, pos)
     @name = 'P'
     @shift_set = create_shifts
   end
@@ -111,8 +138,8 @@ class Pawn < Piece
 end
 
 class Rook < Piece
-  def initialize(color, pos)
-    super(color, pos)
+  def initialize(board, color, pos)
+    super(board, color, pos)
     @name = 'R'
     @shift_set = create_shifts
   end
@@ -128,8 +155,8 @@ class Rook < Piece
 end
 
 class Knight < Piece
-  def initialize(color, pos)
-    super(color, pos)
+  def initialize(board, color, pos)
+    super(board, color, pos)
     @name = 'K'
     @shift_set = create_shifts
   end
@@ -142,8 +169,8 @@ class Knight < Piece
 end
 
 class Bishop < Piece
-  def initialize(color, pos)
-    super(color, pos)
+  def initialize(board, color, pos)
+    super(board, color, pos)
     @name = 'B'
     @shift_set = create_shifts
   end
@@ -161,22 +188,22 @@ class Bishop < Piece
 end
 
 class Queen < Piece
-  def initialize(color, pos)
-    super(color, pos)
+  def initialize(board, color, pos)
+    super(board, color, pos)
     @name = 'Q'
     @shift_set = create_shifts
   end
 
   def create_shifts
-    temp_rook = Rook.new(nil, nil)
-    temp_bishop = Bishop.new(nil, nil)
+    temp_rook = Rook.new(nil, nil, nil)
+    temp_bishop = Bishop.new(nil, nil, nil)
     temp_rook.shift_set.concat(temp_bishop.shift_set)
   end
 end
 
 class King < Piece
-  def initialize(color, pos)
-    super(color, pos)
+  def initialize(board, color, pos)
+    super(board, color, pos)
     @name = 'K'
     @shift_set = create_shifts
   end
