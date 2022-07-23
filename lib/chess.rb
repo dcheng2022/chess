@@ -79,6 +79,23 @@ class Player
     end
   end
 
+  def move_piece
+    piece = select_piece
+    moves = piece.find_moves
+    print 'Enter location to move piece: '
+    loop do
+      pos = validate_input
+      if moves.include?(pos)
+        # must write method below
+        # piece.update_location
+        puts 'updating piece location'
+        break
+      end
+
+      puts 'Invalid location entered.'
+    end
+  end
+
   private
 
   attr_reader :board, :name, :color
@@ -94,15 +111,26 @@ class Piece
   end
 
   def find_moves
-    potential_moves = []
-    shift_set.each do |shift|
-      potential_moves << [pos[0] + shift[0], pos[1] + shift[1]]
-    end
-    moves_in_bounds = find_in_bounds(potential_moves)
     valid_moves = []
-    moves_in_bounds.each do |move|
-      piece = board.space_filled?(move)
-      valid_moves << move unless piece && piece.color == color
+    shift_set.each do |shift|
+      if %w[B R Q].include?(name)
+        shift.each do |dir|
+          move = [pos[0] + dir[0], pos[1] + dir[1]]
+          next unless in_bounds?(move)
+
+          piece = board.space_filled?(move)
+          break if piece && piece.color == color
+
+          valid_moves << move
+          break if piece
+        end
+      else
+        move = [pos[0] + shift[0], pos[1] + shift[1]]
+        next unless in_bounds?(move)
+
+        piece = board.space_filled?(move)
+        valid_moves << move unless piece && piece.color == color
+      end
     end
     valid_moves
   end
@@ -111,12 +139,8 @@ class Piece
 
   attr_reader :board
 
-  def find_in_bounds(moves)
-    in_bounds = []
-    moves.each do |move|
-      in_bounds << move if move.all? { |coord| (1..8).include?(coord) }
-    end
-    in_bounds
+  def in_bounds?(move)
+    true if move.all? { |coord| (1..8).include?(coord) }
   end
 end
 
@@ -130,9 +154,9 @@ class Pawn < Piece
   def create_shifts
     case color
     when 'White'
-      [0, 1]
+      [[0, 1]]
     when 'Black'
-      [0, -1]
+      [[0, -1]]
     end
   end
 end
@@ -145,12 +169,13 @@ class Rook < Piece
   end
 
   def create_shifts
-    temp = []
+    left_temp = []
+    right_temp = []
     (1..7).each do |num|
-      temp << [0 - num, 0]
-      temp << [num, 0]
+      left_temp << [0 - num, 0]
+      right_temp << [num, 0]
     end
-    temp.concat(temp.map(&:rotate))
+    [left_temp, right_temp, left_temp.map(&:rotate), right_temp.map(&:rotate)]
   end
 end
 
@@ -176,14 +201,13 @@ class Bishop < Piece
   end
 
   def create_shifts
-    temp = []
+    bot_left_temp = []
+    bot_right_temp = []
     (1..7).each do |num|
-      temp << [0 - num, 0 - num]
-      temp << [num, num]
-      temp << [num, 0 - num]
-      temp << [0 - num, num]
+      bot_left_temp << [0 - num, 0 - num]
+      bot_right_temp << [num, 0 - num]
     end
-    temp
+    [bot_left_temp, bot_right_temp, bot_left_temp.map { |shift| shift.map(&:abs) }, bot_right_temp.map(&:rotate)]
   end
 end
 
