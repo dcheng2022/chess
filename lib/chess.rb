@@ -73,25 +73,24 @@ class Player
     loop do
       pos = validate_input
       piece = board.space_filled?(pos)
-      return piece if piece && piece.color == color
+      moves = piece ? piece.find_moves : false
+      return [piece, moves] if moves && piece.color == color
 
       puts 'Invalid location entered.'
     end
   end
 
   def move_piece
-    piece = select_piece
-    moves = piece.find_moves
+    info_array = select_piece
+    piece = info_array[0]
+    moves = info_array[1]
     print 'Enter location to move piece: '
     loop do
       pos = validate_input
       if moves.include?(pos)
-        # must write method below
-        # piece.update_location
-        puts 'updating piece location'
+        puts "#{name} moved #{piece.name} to #{piece.change_pos(pos)}"
         break
       end
-
       puts 'Invalid location entered.'
     end
   end
@@ -102,7 +101,8 @@ class Player
 end
 
 class Piece
-  attr_reader :color, :pos, :shift_set, :name
+  attr_reader :color, :shift_set, :name
+  attr_accessor :pos
 
   def initialize(board, color, pos)
     @board = board
@@ -132,8 +132,19 @@ class Piece
         valid_moves << move unless piece && piece.color == color
       end
     end
-    valid_moves
+    valid_moves.empty? ? false : valid_moves
   end
+
+  def change_pos(destination)
+    locations = [pos, destination]
+    locations.each_with_index do |location, pass|
+      x = location[0] - 1
+      y = 8 - location[1]
+      board.board[y][x] = pass.zero? ? ' ' : self
+    end
+    self.pos = destination
+  end
+
 
   private
 
