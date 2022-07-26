@@ -131,8 +131,12 @@ class Piece
         piece = board.space_filled?(move)
         valid_moves << move unless piece && (piece.color == color || name == 'P')
       end
-      pawn_moves = pawn_attack if name == 'P'
+      if name == 'P'
+        pawn_start = first_move
+        pawn_moves = pawn_attack
+      end
       valid_moves.concat(pawn_moves) if pawn_moves
+      valid_moves.concat(pawn_start) if pawn_start
     end
     valid_moves.empty? ? false : valid_moves
   end
@@ -146,6 +150,7 @@ class Piece
       y = 8 - location[1]
       board.board[y][x] = pass.zero? ? ' ' : self
     end
+    self.moved = true if %w[P R K].include?(name)
     self.pos = destination
   end
 
@@ -159,10 +164,13 @@ class Piece
 end
 
 class Pawn < Piece
+  attr_accessor :moved
+
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'P'
     @shift_set = create_shifts
+    @moved = false
   end
 
   def create_shifts
@@ -172,6 +180,13 @@ class Pawn < Piece
     when 'Black'
       [[0, -1]]
     end
+  end
+
+  def first_move
+    return if moved
+
+    shift = shift_set.flatten
+    [[pos[0], pos[1] + 2 * shift[1]]]
   end
 
   def promote_pawn(destination)
@@ -185,17 +200,6 @@ class Pawn < Piece
       board.board[y][x] = pass.zero? ? ' ' : pieces[promote_input].new(board, color, destination)
     end
     true
-  end
-
-  def promote_input
-    pieces = %w[Knight Bishop Rook Queen]
-    print 'Enter the full name of the piece you desire to promote your pawn into: '
-    loop do
-      input = gets.chomp.capitalize
-      return pieces.index(input) if pieces.include?(input)
-
-      puts 'Invalid piece entered.'
-    end
   end
 
   def pawn_attack
@@ -212,6 +216,20 @@ class Pawn < Piece
     end
     valid_attacks.empty? ? false : valid_attacks
   end
+
+  private
+
+  def promote_input
+    pieces = %w[Knight Bishop Rook Queen]
+    print 'Enter the full name of the piece you desire to promote your pawn into: '
+    loop do
+      input = gets.chomp.capitalize
+      return pieces.index(input) if pieces.include?(input)
+
+      puts 'Invalid piece entered.'
+    end
+  end
+
 end
 
 class Rook < Piece
