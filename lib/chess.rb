@@ -128,11 +128,11 @@ class Piece
         move = [pos[0] + shift[0], pos[1] + shift[1]]
         next unless in_bounds?(move)
 
-        pawn_moves = pawn_attack if name == 'P'
-        valid_moves.concat(pawn_moves) if pawn_moves
         piece = board.space_filled?(move)
-        valid_moves << move unless piece && piece.color == color || name == 'P'
+        valid_moves << move unless piece && (piece.color == color || name == 'P')
       end
+      pawn_moves = pawn_attack if name == 'P'
+      valid_moves.concat(pawn_moves) if pawn_moves
     end
     valid_moves.empty? ? false : valid_moves
   end
