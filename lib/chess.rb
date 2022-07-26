@@ -175,10 +175,13 @@ class Pawn < Piece
   def promote_pawn(destination)
     return unless [1, 8].include?(destination[1])
 
-    x = destination[0] - 1
-    y = 8 - destination[1]
     pieces = [Knight, Bishop, Rook, Queen]
-    board.board[y][x] = pieces[promote_input].new(board, color, destination)
+    locations = [pos, destination]
+    locations.each_with_index do |location, pass|
+      x = location[0] - 1
+      y = 8 - location[1]
+      board.board[y][x] = pass.zero? ? ' ' : pieces[promote_input].new(board, color, destination)
+    end
     true
   end
 
