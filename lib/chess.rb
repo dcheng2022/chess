@@ -128,8 +128,10 @@ class Piece
         move = [pos[0] + shift[0], pos[1] + shift[1]]
         next unless in_bounds?(move)
 
+        pawn_moves = pawn_attack if name == 'P'
+        valid_moves.concat(pawn_moves) if pawn_moves
         piece = board.space_filled?(move)
-        valid_moves << move unless piece && piece.color == color
+        valid_moves << move unless piece && piece.color == color || name == 'P'
       end
     end
     valid_moves.empty? ? false : valid_moves
@@ -194,6 +196,21 @@ class Pawn < Piece
 
       puts 'Invalid piece entered.'
     end
+  end
+
+  def pawn_attack
+    valid_attacks = []
+    shifts = color == 'White' ? [[-1, 1], [1, 1]] : [[-1, -1], [1, -1]]
+    shifts.each do |shift|
+      move = [pos[0] + shift[0], pos[1] + shift[1]]
+      next unless in_bounds?(move)
+
+      piece = board.space_filled?(move)
+      next unless piece
+
+      valid_attacks << move unless piece.color == color
+    end
+    valid_attacks.empty? ? false : valid_attacks
   end
 end
 
