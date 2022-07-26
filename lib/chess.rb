@@ -136,6 +136,8 @@ class Piece
   end
 
   def change_pos(destination)
+    return if name == 'P' && promote_pawn(destination)
+
     locations = [pos, destination]
     locations.each_with_index do |location, pass|
       x = location[0] - 1
@@ -144,7 +146,6 @@ class Piece
     end
     self.pos = destination
   end
-
 
   private
 
@@ -168,6 +169,27 @@ class Pawn < Piece
       [[0, 1]]
     when 'Black'
       [[0, -1]]
+    end
+  end
+
+  def promote_pawn(destination)
+    return unless [1, 8].include?(destination[1])
+
+    x = destination[0] - 1
+    y = 8 - destination[1]
+    pieces = [Knight, Bishop, Rook, Queen]
+    board.board[y][x] = pieces[promote_input].new(board, color, destination)
+    true
+  end
+
+  def promote_input
+    pieces = %w[Knight Bishop Rook Queen]
+    print 'Enter the full name of the piece you desire to promote your pawn into: '
+    loop do
+      input = gets.chomp.capitalize
+      return pieces.index(input) if pieces.include?(input)
+
+      puts 'Invalid piece entered.'
     end
   end
 end
