@@ -118,10 +118,10 @@ class Piece
 
   def find_moves
     valid_moves = []
-    shift_set.each do |shift|
-      if %w[B R Q].include?(name)
-        shift.each do |dir|
-          move = [pos[0] + dir[0], pos[1] + dir[1]]
+    if %w[B R Q].include?(name)
+      shift_set.each do |diagonal|
+        diagonal.each do |shift|
+          move = [pos[0] + shift[0], pos[1] + shift[1]]
           next unless in_bounds?(move)
 
           piece = board.space_filled?(move)
@@ -130,29 +130,31 @@ class Piece
           valid_moves << move
           break if piece
         end
-      else
+      end
+    else
+      shift_set.each do |shift|
         move = [pos[0] + shift[0], pos[1] + shift[1]]
         next unless in_bounds?(move)
 
         piece = board.space_filled?(move)
         valid_moves << move unless piece && (piece.color == color || name == 'P')
       end
-      if name == 'P'
-        pawn_start = first_move
-        pawn_moves = pawn_attack
-      end
-      valid_moves.concat(pawn_moves) if pawn_moves
-      valid_moves.concat(pawn_start) if pawn_start
     end
+    if name == 'P'
+      pawn_start = first_move
+      pawn_moves = pawn_attack
+    end
+    valid_moves.concat(pawn_moves) if pawn_moves
+    valid_moves.concat(pawn_start) if pawn_start
     valid_moves.empty? ? false : valid_moves
   end
 
   def change_pos(destination)
-    return if name == 'P' && promote_pawn(destination)
-
     locations = [pos, destination]
+    promote_pawn = true if [1, 8].include?(destination[1]) && name == 'P'
+    piece = promote_pawn ? promote_set[promote_input].new(board, color, destination) : self
     locations.each_with_index do |location, pass|
-      value = pass.zero? ? ' ' : self
+      value = pass.zero? ? ' ' : piece
       board.modify_board(location[0], location[1], value)
     end
     # once castling implemented also add K and R
@@ -170,6 +172,7 @@ class Piece
 end
 
 class Pawn < Piece
+  attr_reader :promote_set
   attr_accessor :moved
 
   def initialize(board, color, pos)
@@ -177,6 +180,7 @@ class Pawn < Piece
     @name = 'P'
     @shift_set = create_shifts
     @moved = false
+    @promote_set = [Knight, Bishop, Rook, Queen]
   end
 
   def create_shifts
@@ -189,18 +193,6 @@ class Pawn < Piece
 
     shift = shift_set.flatten
     [[pos[0], pos[1] + 2 * shift[1]]]
-  end
-
-  def promote_pawn(destination)
-    return unless [1, 8].include?(destination[1])
-
-    pieces = [Knight, Bishop, Rook, Queen]
-    locations = [pos, destination]
-    locations.each_with_index do |location, pass|
-      value = pass.zero? ? ' ' : pieces[promote_input].new(board, color, destination)
-      board.modify_board(location[0], location[1], value)
-    end
-    true
   end
 
   def pawn_attack
