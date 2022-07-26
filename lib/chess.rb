@@ -15,6 +15,12 @@ class Chess
     false
   end
 
+  def modify_board(row, column, value)
+    x_pos = row - 1
+    y_pos = 8 - column
+    board[y_pos][x_pos] = value
+  end
+
   #private
 
   attr_accessor :board
@@ -146,11 +152,11 @@ class Piece
 
     locations = [pos, destination]
     locations.each_with_index do |location, pass|
-      x = location[0] - 1
-      y = 8 - location[1]
-      board.board[y][x] = pass.zero? ? ' ' : self
+      value = pass.zero? ? ' ' : self
+      board.modify_board(location[0], location[1], value)
     end
-    self.moved = true if %w[P R K].include?(name)
+    # once castling implemented also add K and R
+    self.moved = true if %w[P].include?(name)
     self.pos = destination
   end
 
@@ -174,12 +180,8 @@ class Pawn < Piece
   end
 
   def create_shifts
-    case color
-    when 'White'
-      [[0, 1]]
-    when 'Black'
-      [[0, -1]]
-    end
+    shifts = { 'White' => [[0, 1]], 'Black' => [[0, -1]] }
+    shifts[color]
   end
 
   def first_move
@@ -195,17 +197,16 @@ class Pawn < Piece
     pieces = [Knight, Bishop, Rook, Queen]
     locations = [pos, destination]
     locations.each_with_index do |location, pass|
-      x = location[0] - 1
-      y = 8 - location[1]
-      board.board[y][x] = pass.zero? ? ' ' : pieces[promote_input].new(board, color, destination)
+      value = pass.zero? ? ' ' : pieces[promote_input].new(board, color, destination)
+      board.modify_board(location[0], location[1], value)
     end
     true
   end
 
   def pawn_attack
     valid_attacks = []
-    shifts = color == 'White' ? [[-1, 1], [1, 1]] : [[-1, -1], [1, -1]]
-    shifts.each do |shift|
+    shifts = { 'White' => [[-1, 1], [1, 1]], 'Black' => [[-1, -1], [1, -1]] }
+    shifts[color].each do |shift|
       move = [pos[0] + shift[0], pos[1] + shift[1]]
       next unless in_bounds?(move)
 
@@ -229,7 +230,6 @@ class Pawn < Piece
       puts 'Invalid piece entered.'
     end
   end
-
 end
 
 class Rook < Piece
