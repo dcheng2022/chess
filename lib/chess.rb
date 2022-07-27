@@ -119,40 +119,24 @@ class Piece
   def find_moves
     valid_moves = []
     if %w[B R Q].include?(name)
-      shift_set.each do |diagonal|
-        diagonal.each do |shift|
-          move = [pos[0] + shift[0], pos[1] + shift[1]]
-          next unless in_bounds?(move)
-
-          piece = board.space_filled?(move)
-          break if piece && piece.color == color
-
-          valid_moves << move
-          break if piece
-        end
-      end
+      valid_moves.concat(find_BRQ_moves)
     else
+      valid_moves.concat(pawn_attack).concat(first_move) if name == 'P'
       shift_set.each do |shift|
-        move = [pos[0] + shift[0], pos[1] + shift[1]]
-        next unless in_bounds?(move)
+        move_info = find_move_info(shift)
+        next unless move_info
 
-        piece = board.space_filled?(move)
-        valid_moves << move unless piece && (piece.color == color || name == 'P')
+        valid_moves << move_info[:move] unless move_info[:piece] && (move_info[:piece].color == color || name == 'P')
       end
     end
-    if name == 'P'
-      pawn_start = first_move
-      pawn_moves = pawn_attack
-    end
-    valid_moves.concat(pawn_moves) if pawn_moves
-    valid_moves.concat(pawn_start) if pawn_start
     valid_moves.empty? ? false : valid_moves
   end
 
   def change_pos(destination)
-    locations = [pos, destination]
     promote_pawn = true if [1, 8].include?(destination[1]) && name == 'P'
     piece = promote_pawn ? promote_set[promote_input].new(board, color, destination) : self
+
+    locations = [pos, destination]
     locations.each_with_index do |location, pass|
       value = pass.zero? ? ' ' : piece
       board.modify_board(location[0], location[1], value)
@@ -165,6 +149,30 @@ class Piece
   private
 
   attr_reader :board
+
+  def find_BRQ_moves
+    valid_moves = []
+    shift_set.each do |diagonal|
+      diagonal.each do |shift|
+        move_info = find_move_info(shift)
+        next unless move_info
+
+        break if move_info[:piece] && move_info[:piece].color == color
+
+        valid_moves << move_info[:move]
+        break if move_info[:piece]
+      end
+    end
+    valid_moves
+  end
+
+  def find_move_info(shift)
+    move = [pos[0] + shift[0], pos[1] + shift[1]]
+    return false unless in_bounds?(move)
+
+    piece = board.space_filled?(move)
+    piece ? { move: move, piece: piece } : { move: move, piece: false }
+  end
 
   def in_bounds?(move)
     true if move.all? { |coord| (1..8).include?(coord) }
@@ -189,7 +197,7 @@ class Pawn < Piece
   end
 
   def first_move
-    return if moved
+    return [] if moved
 
     shift = shift_set.flatten
     [[pos[0], pos[1] + 2 * shift[1]]]
@@ -199,15 +207,12 @@ class Pawn < Piece
     valid_attacks = []
     shifts = { 'White' => [[-1, 1], [1, 1]], 'Black' => [[-1, -1], [1, -1]] }
     shifts[color].each do |shift|
-      move = [pos[0] + shift[0], pos[1] + shift[1]]
-      next unless in_bounds?(move)
+      move_info = find_move_info(shift)
+      next unless move_info && move_info[:piece]
 
-      piece = board.space_filled?(move)
-      next unless piece
-
-      valid_attacks << move unless piece.color == color
+      valid_attacks << move_info[:move] unless move_info[:piece].color == color
     end
-    valid_attacks.empty? ? false : valid_attacks
+    valid_attacks.empty? ? [] : valid_attacks
   end
 
   private
