@@ -15,9 +15,9 @@ class Chess
     false
   end
 
-  def modify_board(row, column, value)
-    x_pos = row - 1
-    y_pos = 8 - column
+  def modify_board(x, y, value)
+    x_pos = x - 1
+    y_pos = 8 - y
     board[y_pos][x_pos] = value
   end
 
@@ -122,6 +122,7 @@ class Piece
       valid_moves.concat(find_BRQ_moves)
     else
       valid_moves.concat(pawn_attack, first_move, en_passant) if name == 'P'
+      valid_moves.concat(castle_king) if name == 'K'
       shift_set.each do |shift|
         move_info = find_move_info(shift)
         next unless move_info
@@ -136,14 +137,15 @@ class Piece
     promote_pawn = true if [1, 8].include?(destination[1]) && name == 'P'
     piece = promote_pawn ? promote_set[promote_input].new(board, color, destination) : self
 
+    castle(destination) if (destination[0] - pos[0]).abs > 1 && name == 'K'
+
     locations = [pos, destination]
     locations.each_with_index do |location, pass|
       value = pass.zero? ? ' ' : piece
       board.modify_board(location[0], location[1], value)
     end
-    # once castling implemented also add K and R
     disable_passantable
-    self.moved = true if %w[P].include?(name)
+    self.moved = true if %w[P R K].include?(name)
     self.pos = destination
   end
 
@@ -188,6 +190,29 @@ class Piece
         piece.passantable = false
       end
     end
+  end
+
+  def find_king_check(spaces)
+    threatened_spaces = []
+    board.board.each do |row|
+      row.each do |piece|
+        next if piece == ' ' || piece.color == color || (piece.name == 'K' && piece.moved == false)
+
+        moves = piece.find_moves
+        threatened_spaces.concat(moves) if moves
+      end
+    end
+    return true if spaces.any? { |space| threatened_spaces.include?(space) }
+
+    false
+  end
+
+  def castle(king_pos)
+    y = king_pos[1]
+    old_x = king_pos[0] < 5 ? 1 : 8
+    new_x = old_x == 1 ? 4 : 6
+    board.modify_board(old_x, y, ' ')
+    board.modify_board(new_x, y, Rook.new(board, color, [new_x, y]))
   end
 end
 
@@ -263,10 +288,13 @@ class Pawn < Piece
 end
 
 class Rook < Piece
+  attr_accessor :moved
+
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'R'
     @shift_set = create_shifts
+    @moved = false
   end
 
   def create_shifts
@@ -283,7 +311,7 @@ end
 class Knight < Piece
   def initialize(board, color, pos)
     super(board, color, pos)
-    @name = 'K'
+    @name = 'Kn'
     @shift_set = create_shifts
   end
 
@@ -327,15 +355,70 @@ class Queen < Piece
 end
 
 class King < Piece
+  attr_accessor :moved
+
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'K'
     @shift_set = create_shifts
+    @moved = false
   end
 
   def create_shifts
     temp = []
     [-1, -1, 0, 1, 1].permutation(2) { |perm| temp << perm }
     temp.uniq
+  end
+
+  def castle_king
+    return [] if moved
+
+    unmoved_rooks = find_unmoved_rooks
+    return [] if unmoved_rooks.empty?
+
+    accessible_rooks = find_accessible_rooks(unmoved_rooks)
+    return [] if accessible_rooks.empty?
+
+    find_castle_moves(accessible_rooks)
+  end
+
+  private
+
+  def find_unmoved_rooks
+    unmoved_rooks = []
+    rook_positions = [[pos[0] - 4, pos[1]], [pos[0] + 3, pos[1]]]
+    rook_positions.each do |r_pos|
+      piece = board.space_filled?(r_pos)
+      next unless piece && piece.name == 'R'
+
+      unmoved_rooks << piece unless piece.moved
+    end
+    unmoved_rooks
+  end
+
+  def find_accessible_rooks(unmoved_rooks)
+    accessible_rooks = []
+    open_length = { 1 => 3, 8 => 2 }
+    unmoved_rooks.each do |rook|
+      moves = rook.find_moves
+      intervening_spaces = moves.select { |move| move[1] == rook.pos[1] } if moves
+      next unless intervening_spaces && intervening_spaces.length == open_length[rook.pos[0]]
+
+      accessible_rooks << rook unless find_king_check(intervening_spaces)
+    end
+    accessible_rooks
+  end
+
+  def find_castle_moves(accessible_rooks)
+    king_moves = []
+    accessible_rooks.each do |rook|
+      case rook.pos[0]
+      when 1
+        king_moves << [rook.pos[0] + 2, rook.pos[1]]
+      when 8
+        king_moves << [rook.pos[0] - 1, rook.pos[1]]
+      end
+    end
+    king_moves
   end
 end
