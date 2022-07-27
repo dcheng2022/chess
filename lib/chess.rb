@@ -79,8 +79,8 @@ class Player
     loop do
       pos = validate_input
       piece = board.space_filled?(pos)
-      moves = piece ? piece.find_moves : false
-      return [piece, moves] if moves && piece.color == color
+      moves = piece && piece.color == color ? piece.find_moves : false
+      return [piece, moves] if moves
 
       puts 'Invalid location entered.'
     end
@@ -121,7 +121,7 @@ class Piece
     if %w[B R Q].include?(name)
       valid_moves.concat(find_BRQ_moves)
     else
-      valid_moves.concat(pawn_attack).concat(first_move) if name == 'P'
+      valid_moves.concat(pawn_attack, first_move, en_passant) if name == 'P'
       shift_set.each do |shift|
         move_info = find_move_info(shift)
         next unless move_info
@@ -142,6 +142,7 @@ class Piece
       board.modify_board(location[0], location[1], value)
     end
     # once castling implemented also add K and R
+    disable_passantable
     self.moved = true if %w[P].include?(name)
     self.pos = destination
   end
@@ -177,17 +178,29 @@ class Piece
   def in_bounds?(move)
     true if move.all? { |coord| (1..8).include?(coord) }
   end
+
+  def disable_passantable
+    board.board.each do |row|
+      row.each do |piece|
+        next if piece == ' '
+        next unless piece.name == 'P' && piece.moved
+
+        piece.passantable = false
+      end
+    end
+  end
 end
 
 class Pawn < Piece
   attr_reader :promote_set
-  attr_accessor :moved
+  attr_accessor :moved, :passantable
 
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'P'
     @shift_set = create_shifts
     @moved = false
+    @passantable = false
     @promote_set = [Knight, Bishop, Rook, Queen]
   end
 
@@ -199,6 +212,7 @@ class Pawn < Piece
   def first_move
     return [] if moved
 
+    self.passantable = true
     shift = shift_set.flatten
     [[pos[0], pos[1] + 2 * shift[1]]]
   end
@@ -213,6 +227,25 @@ class Pawn < Piece
       valid_attacks << move_info[:move] unless move_info[:piece].color == color
     end
     valid_attacks.empty? ? [] : valid_attacks
+  end
+
+  def en_passant
+    passant_move = []
+    shifts = [[-1, 0], [1, 0]]
+    shifts.each do |shift|
+      move_info = find_move_info(shift)
+      next unless move_info
+
+      piece = move_info[:piece]
+      move = move_info[:move]
+      next unless piece && piece.name == 'P' && piece.passantable
+      next if piece.color == color
+
+      capture_move = { 'White' => [move[0], move[1] + 1], 'Black' => [move[0], move[1] - 1] }
+      board.modify_board(move[0], move[1], ' ')
+      passant_move << capture_move[color]
+    end
+    passant_move
   end
 
   private
