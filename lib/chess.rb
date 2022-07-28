@@ -80,7 +80,9 @@ class Player
       pos = validate_input
       piece = board.space_filled?(pos)
       moves = piece && piece.color == color ? piece.find_moves : false
-      return [piece, moves] if moves
+      pinned_moves = piece.find_pinned_moves(moves) if moves
+      moves = pinned_moves if pinned_moves
+      return [piece, moves] if moves && moves.length >= 1
 
       puts 'Invalid location entered.'
     end
@@ -149,9 +151,57 @@ class Piece
     self.pos = destination
   end
 
+  def find_pinned_moves(moves)
+    pinning_pos = []
+    valid_moves = []
+    king_pos = find_king
+    board.modify_board(pos[0], pos[1], ' ')
+    board.board.each do |row|
+      row.each do |piece|
+        next unless piece.is_a?(Piece) && %w[B R Q].include?(piece.name)
+        next if piece.color == color
+
+        piece_moves = piece.find_moves
+        next unless piece_moves
+
+        pinning_pos << piece.pos if piece_moves.include?(king_pos)
+      end
+    end
+    board.modify_board(pos[0], pos[1], self)
+    return false if pinning_pos.empty?
+    return valid_moves unless pinning_pos.length == 1
+
+    moves.each { |move| valid_moves << move if move == pinning_pos.flatten }
+    return valid_moves if valid_moves.empty?
+
+    shifted_moves = shift_pinned_moves(moves, pinning_pos.flatten)
+    valid_moves.concat(shifted_moves).uniq if shifted_moves
+  end
+
   private
 
   attr_reader :board
+
+  def shift_pinned_moves(moves, pinning_pos)
+    return unless %w[B R Q].include?(name)
+
+    if pos[0] == pinning_pos[0]
+      moves.select { |move| move[0] == pos[0] }
+    elsif pos[1] == pinning_pos[1]
+      moves.select { |move| move[1] == pos[1] }
+    else
+      valid_moves = []
+      diagonal_shifts = [[-1, -1], [-1, 1], [1, 1], [1, -1]]
+      diagonal_shifts.each do |shift|
+        temp_pos = pinning_pos
+        while moves.include?(temp_pos)
+          valid_moves << temp_pos
+          temp_pos = [temp_pos[0] + shift[0], temp_pos[1] + shift[1]]
+        end
+      end
+      valid_moves
+    end
+  end
 
   def find_BRQ_moves
     valid_moves = []
@@ -188,6 +238,16 @@ class Piece
         next unless piece.name == 'P' && piece.moved
 
         piece.passantable = false
+      end
+    end
+  end
+
+  def find_king
+    board.board.each do |row|
+      row.each do |piece|
+        next unless piece.is_a?(Piece) && piece.name == 'K' && piece.color == color
+
+        return piece.pos
       end
     end
   end
