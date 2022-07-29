@@ -21,6 +21,37 @@ class Chess
     board[y_pos][x_pos] = value
   end
 
+  def find_king(color)
+    board.each do |row|
+      row.each do |piece|
+        next unless piece.is_a?(Piece) && piece.name == 'K' && piece.color == color
+
+        return piece.pos
+      end
+    end
+  end
+
+  def is_threatened?(color, spaces)
+    threatened_spaces = []
+    board.each do |row|
+      row.each do |piece|
+        next unless piece.is_a?(Piece)
+        next if piece.color == color
+        next if piece.name == 'K' && piece.moved == false
+
+        moves = piece.find_moves
+        threatened_spaces.concat(moves) if moves
+      end
+    end
+    return true if spaces.any? { |space| threatened_spaces.include?(space) }
+
+    false
+  end
+
+  def game_over
+    puts 'Game over.'
+  end
+
   #private
 
   attr_accessor :board
@@ -76,6 +107,9 @@ class Player
   def select_piece
     puts "#{name}'s turn"
     print 'Enter location to select piece: '
+    king = board.space_filled?(board.find_king(color))
+    return select_check_piece(king) if king.in_check
+
     loop do
       pos = validate_input
       piece = board.space_filled?(pos)
@@ -90,6 +124,8 @@ class Player
 
   def move_piece
     info_array = select_piece
+    return board.game_over unless info_array
+
     piece = info_array[0]
     moves = info_array[1]
     print 'Enter location to move piece: '
@@ -106,6 +142,21 @@ class Player
   private
 
   attr_reader :board, :name, :color
+
+  def select_check_piece(king)
+    pieces_and_moves = king.find_moves_check
+    return false if pieces_and_moves.empty?
+
+    loop do
+      pos = validate_input
+      valid_piece = pieces_and_moves.key?(pos)
+      piece = board.space_filled?(pos) if valid_piece
+      moves = pieces_and_moves[pos] if valid_piece
+      return [piece, moves] if valid_piece
+
+      puts 'Invalid piece selection. King is under check.'
+    end
+  end
 end
 
 class Piece
@@ -131,11 +182,13 @@ class Piece
 
         valid_moves << move_info[:move] unless move_info[:piece] && (move_info[:piece].color == color || name == 'P')
       end
+      valid_moves.reject! { |move| invalid_check_move?(move, self) } if name == 'K' && in_check == false
     end
     valid_moves.empty? ? false : valid_moves
   end
 
   def change_pos(destination)
+    king = board.space_filled?(board.find_king(color))
     promote_pawn = true if [1, 8].include?(destination[1]) && name == 'P'
     piece = promote_pawn ? promote_set[promote_input].new(board, color, destination) : self
 
@@ -149,22 +202,25 @@ class Piece
     disable_passantable
     self.moved = true if %w[P R K].include?(name)
     self.pos = destination
+    king.in_check = false if king.in_check
+    enemy_king_checked?
   end
 
   def find_pinned_moves(moves)
     pinning_pos = []
     valid_moves = []
-    king_pos = find_king
+    king = board.space_filled?(board.find_king(color))
     board.modify_board(pos[0], pos[1], ' ')
     board.board.each do |row|
       row.each do |piece|
         next unless piece.is_a?(Piece) && %w[B R Q].include?(piece.name)
         next if piece.color == color
+        next if king.in_check && piece == king.checking_piece
 
         piece_moves = piece.find_moves
         next unless piece_moves
 
-        pinning_pos << piece.pos if piece_moves.include?(king_pos)
+        pinning_pos << piece.pos if piece_moves.include?(king.pos)
       end
     end
     board.modify_board(pos[0], pos[1], self)
@@ -178,9 +234,60 @@ class Piece
     valid_moves.concat(shifted_moves).uniq if shifted_moves
   end
 
+  def find_moves_check
+    pieces_and_moves = {}
+    board.board.each do |row|
+      row.each do |piece|
+        next unless piece.is_a?(Piece) && piece.color == color
+
+        moves = piece.find_moves
+        next unless moves
+
+        moves = find_king_moves_check(moves) if piece == self
+        # pinned_moves = piece.find_pinned_moves(moves)
+        # moves = pinned_moves if pinned_moves
+        # next unless moves && moves.length >= 1
+        next if piece.find_pinned_moves(moves)
+
+        valid_moves = []
+        moves.each { |move| valid_moves << move unless invalid_check_move?(move, piece) }
+        pieces_and_moves[piece.pos] = valid_moves unless valid_moves.empty?
+      end
+    end
+    pieces_and_moves
+  end
+
   private
 
   attr_reader :board
+
+  def find_king_moves_check(moves)
+    moves.reject { |move| board.is_threatened?(color, [move]) }
+  end
+
+  def invalid_check_move?(move, piece)
+    destination_value = board.space_filled?(move)
+    return false if destination_value == checking_piece && piece.name != 'K'
+
+    board.modify_board(move[0], move[1], piece)
+    board.modify_board(piece.pos[0], piece.pos[1], ' ')
+    invalid = piece.is_a?(King) ? board.is_threatened?(color, [move]) : checking_piece.find_moves.include?(pos)
+    board.modify_board(move[0], move[1], destination_value || ' ')
+    board.modify_board(piece.pos[0], piece.pos[1], piece)
+    invalid
+  end
+
+  def enemy_king_checked?
+    opp_colors = { 'White' => 'Black', 'Black' => 'White' }
+    enemy_king = board.space_filled?(board.find_king(opp_colors[color]))
+    return false unless enemy_king
+
+    next_moves = find_moves
+    return false unless next_moves && next_moves.include?(enemy_king.pos)
+
+    enemy_king.checking_piece = self
+    enemy_king.in_check = true
+  end
 
   def shift_pinned_moves(moves, pinning_pos)
     return unless %w[B R Q].include?(name)
@@ -234,37 +341,11 @@ class Piece
   def disable_passantable
     board.board.each do |row|
       row.each do |piece|
-        next if piece == ' '
-        next unless piece.name == 'P' && piece.moved
+        next unless piece.is_a?(Pawn) && piece.moved
 
         piece.passantable = false
       end
     end
-  end
-
-  def find_king
-    board.board.each do |row|
-      row.each do |piece|
-        next unless piece.is_a?(Piece) && piece.name == 'K' && piece.color == color
-
-        return piece.pos
-      end
-    end
-  end
-
-  def find_king_check(spaces)
-    threatened_spaces = []
-    board.board.each do |row|
-      row.each do |piece|
-        next if piece == ' ' || piece.color == color || (piece.name == 'K' && piece.moved == false)
-
-        moves = piece.find_moves
-        threatened_spaces.concat(moves) if moves
-      end
-    end
-    return true if spaces.any? { |space| threatened_spaces.include?(space) }
-
-    false
   end
 
   def castle(king_pos)
@@ -415,12 +496,14 @@ class Queen < Piece
 end
 
 class King < Piece
-  attr_accessor :moved
+  attr_accessor :moved, :in_check, :checking_piece
 
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'K'
     @shift_set = create_shifts
+    @in_check = false
+    @checking_piece = false
     @moved = false
   end
 
@@ -464,7 +547,7 @@ class King < Piece
       intervening_spaces = moves.select { |move| move[1] == rook.pos[1] } if moves
       next unless intervening_spaces && intervening_spaces.length == open_length[rook.pos[0]]
 
-      accessible_rooks << rook unless find_king_check(intervening_spaces)
+      accessible_rooks << rook unless board.is_threatened?(color, intervening_spaces)
     end
     accessible_rooks
   end
