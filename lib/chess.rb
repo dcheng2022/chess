@@ -15,16 +15,16 @@ class Chess
     false
   end
 
-  def modify_board(x, y, value)
-    x_pos = x - 1
-    y_pos = 8 - y
-    board[y_pos][x_pos] = value
+  def modify_board(x_pos, y_pos, value)
+    piece = x_pos - 1
+    row = 8 - y_pos
+    board[row][piece] = value
   end
 
   def find_king(color)
     board.each do |row|
       row.each do |piece|
-        next unless piece.is_a?(Piece) && piece.name == 'K' && piece.color == color
+        next unless piece.is_a?(King) && piece.color == color
 
         return piece.pos
       end
@@ -37,9 +37,8 @@ class Chess
       row.each do |piece|
         next unless piece.is_a?(Piece)
         next if piece.color == color
-        next if piece.name == 'K' && piece.moved == false
 
-        moves = piece.find_moves
+        moves = piece.find_moves(true)
         threatened_spaces.concat(moves) if moves
       end
     end
@@ -49,6 +48,7 @@ class Chess
   end
 
   def game_over
+    # to-do: expand upon
     puts 'Game over.'
   end
 
@@ -108,14 +108,13 @@ class Player
     puts "#{name}'s turn"
     print 'Enter location to select piece: '
     king = board.space_filled?(board.find_king(color))
-    return select_check_piece(king) if king.in_check
+    return select_piece_under_check(king) if king.in_check
 
     loop do
       pos = validate_input
       piece = board.space_filled?(pos)
       moves = piece && piece.color == color ? piece.find_moves : false
-      pinned_moves = piece.find_pinned_moves(moves) if moves
-      moves = pinned_moves if pinned_moves
+      moves = piece.find_pinned_moves(moves) if moves
       return [piece, moves] if moves && moves.length >= 1
 
       puts 'Invalid location entered.'
@@ -123,16 +122,17 @@ class Player
   end
 
   def move_piece
-    info_array = select_piece
-    return board.game_over unless info_array
+    piece_and_moves = select_piece
+    return board.game_over unless piece_and_moves
 
-    piece = info_array[0]
-    moves = info_array[1]
+    piece = piece_and_moves[0]
+    moves = piece_and_moves[1]
     print 'Enter location to move piece: '
     loop do
       pos = validate_input
       if moves.include?(pos)
-        puts "#{name} moved #{piece.name} to #{piece.change_pos(pos)}"
+        piece.change_pos(pos)
+        puts "#{name} moved #{piece.name} to #{pos}"
         break
       end
       puts 'Invalid location entered.'
@@ -143,16 +143,14 @@ class Player
 
   attr_reader :board, :name, :color
 
-  def select_check_piece(king)
-    pieces_and_moves = king.find_moves_check
+  def select_piece_under_check(king)
+    pieces_and_moves = king.find_moves_under_check
     return false if pieces_and_moves.empty?
 
     loop do
       pos = validate_input
       valid_piece = pieces_and_moves.key?(pos)
-      piece = board.space_filled?(pos) if valid_piece
-      moves = pieces_and_moves[pos] if valid_piece
-      return [piece, moves] if valid_piece
+      return [board.space_filled?(pos), pieces_and_moves[pos]] if valid_piece
 
       puts 'Invalid piece selection. King is under check.'
     end
@@ -169,46 +167,100 @@ class Piece
     @pos = pos
   end
 
-  def find_moves
-    valid_moves = []
-    if %w[B R Q].include?(name)
-      valid_moves.concat(find_BRQ_moves)
-    else
-      valid_moves.concat(pawn_attack, first_move, en_passant) if name == 'P'
-      valid_moves.concat(castle_king) if name == 'K'
-      shift_set.each do |shift|
-        move_info = find_move_info(shift)
-        next unless move_info
+  def find_moves(simple_check = false)
+    return find_moves_ranged || false if %w[B R Q].include?(name)
 
-        valid_moves << move_info[:move] unless move_info[:piece] && (move_info[:piece].color == color || name == 'P')
-      end
-      valid_moves.reject! { |move| invalid_check_move?(move, self) } if name == 'K' && in_check == false
+    valid_moves = []
+    shift_set.each do |shift|
+      move_and_piece = check_move_validity(shift)
+      next unless move_and_piece
+
+      move = move_and_piece[:move]
+      piece = move_and_piece[:piece]
+      valid_moves << move unless piece && (piece.color == color || name == 'P')
     end
-    valid_moves.empty? ? false : valid_moves
+    case name
+    when 'P'
+      valid_moves.concat(pawn_attack, en_passant)
+      valid_moves.concat(first_move) unless simple_check
+    when 'K'
+      valid_moves.concat(castle_king)
+      valid_moves.reject! { |move| invalid_move_under_check?(move) } unless in_check
+      valid_moves.reject! { |move| board.is_threatened?(color, [move]) } unless simple_check
+    end
+    return valid_moves unless valid_moves.empty?
+
+    false
   end
 
   def change_pos(destination)
-    king = board.space_filled?(board.find_king(color))
-    promote_pawn = true if [1, 8].include?(destination[1]) && name == 'P'
-    piece = promote_pawn ? promote_set[promote_input].new(board, color, destination) : self
-
-    castle(destination) if (destination[0] - pos[0]).abs > 1 && name == 'K'
-
-    locations = [pos, destination]
-    locations.each_with_index do |location, pass|
-      value = pass.zero? ? ' ' : piece
+    piece = self
+    case name
+    when 'P'
+      promote_pawn = true if [1, 8].include?(destination[1])
+      piece = promote_set[promote_input].new(board, color, destination) if promote_pawn
+    when 'K'
+      castle_rook(destination) if (destination[0] - pos[0]).abs > 1
+    end
+    [pos, destination].each_with_index do |location, idx|
+      value = idx.zero? ? ' ' : piece
       board.modify_board(location[0], location[1], value)
     end
+    change_pos_auxiliary(destination)
+  end
+
+  def find_pinned_moves(moves)
+    pinning_positions = find_pinning_pieces
+    return moves if pinning_positions.empty?
+    return [] unless pinning_positions.length == 1
+
+    valid_moves = []
+    moves.each { |move| valid_moves << move if move == pinning_positions.flatten }
+    return [] if valid_moves.empty?
+
+    shifted_moves = shift_pinned_moves(moves, pinning_positions.flatten)
+    valid_moves.concat(shifted_moves) if shifted_moves
+  end
+
+  def find_moves_under_check
+    pieces_and_moves = {}
+    board.board.each do |row|
+      row.each do |piece|
+        next unless piece.is_a?(Piece) && piece.color == color
+
+        moves = piece.find_moves
+        next unless moves
+
+        moves = piece.find_pinned_moves(moves)
+        next if moves.empty?
+
+        valid_moves = []
+        if piece.is_a?(King)
+          valid_moves = find_king_moves_under_check
+        else
+          moves.each { |move| valid_moves << move unless piece.invalid_move_under_check?(move) }
+        end
+        pieces_and_moves[piece.pos] = valid_moves unless valid_moves.empty?
+      end
+    end
+    pieces_and_moves
+  end
+
+  private
+
+  attr_reader :board
+
+  def change_pos_auxiliary(destination)
     disable_passantable
     self.moved = true if %w[P R K].include?(name)
     self.pos = destination
+    king = board.space_filled?(board.find_king(color))
     king.in_check = false if king.in_check
     enemy_king_checked?
   end
 
-  def find_pinned_moves(moves)
-    pinning_pos = []
-    valid_moves = []
+  def find_pinning_pieces
+    pinning_positions = []
     king = board.space_filled?(board.find_king(color))
     board.modify_board(pos[0], pos[1], ' ')
     board.board.each do |row|
@@ -220,60 +272,27 @@ class Piece
         piece_moves = piece.find_moves
         next unless piece_moves
 
-        pinning_pos << piece.pos if piece_moves.include?(king.pos)
+        pinning_positions << piece.pos if piece_moves.include?(king.pos)
       end
     end
     board.modify_board(pos[0], pos[1], self)
-    return false if pinning_pos.empty?
-    return valid_moves unless pinning_pos.length == 1
-
-    moves.each { |move| valid_moves << move if move == pinning_pos.flatten }
-    return valid_moves if valid_moves.empty?
-
-    shifted_moves = shift_pinned_moves(moves, pinning_pos.flatten)
-    valid_moves.concat(shifted_moves).uniq if shifted_moves
+    pinning_positions
   end
 
-  def find_moves_check
-    pieces_and_moves = {}
-    board.board.each do |row|
-      row.each do |piece|
-        next unless piece.is_a?(Piece) && piece.color == color
-
-        moves = piece.find_moves
-        next unless moves
-
-        moves = find_king_moves_check(moves) if piece == self
-        # pinned_moves = piece.find_pinned_moves(moves)
-        # moves = pinned_moves if pinned_moves
-        # next unless moves && moves.length >= 1
-        next if piece.find_pinned_moves(moves)
-
-        valid_moves = []
-        moves.each { |move| valid_moves << move unless invalid_check_move?(move, piece) }
-        pieces_and_moves[piece.pos] = valid_moves unless valid_moves.empty?
-      end
-    end
-    pieces_and_moves
-  end
-
-  private
-
-  attr_reader :board
-
-  def find_king_moves_check(moves)
+  def find_king_moves_under_check(moves)
     moves.reject { |move| board.is_threatened?(color, [move]) }
   end
 
-  def invalid_check_move?(move, piece)
-    destination_value = board.space_filled?(move)
-    return false if destination_value == checking_piece && piece.name != 'K'
+  def invalid_move_under_check?(move)
+    king_pos = board.find_king(color)
+    target_value = board.space_filled?(move)
+    return false if target_value == checking_piece
 
-    board.modify_board(move[0], move[1], piece)
-    board.modify_board(piece.pos[0], piece.pos[1], ' ')
-    invalid = piece.is_a?(King) ? board.is_threatened?(color, [move]) : checking_piece.find_moves.include?(pos)
-    board.modify_board(move[0], move[1], destination_value || ' ')
-    board.modify_board(piece.pos[0], piece.pos[1], piece)
+    board.modify_board(move[0], move[1], self)
+    board.modify_board(pos[0], pos[1], ' ')
+    invalid = checking_piece.find_moves.include?(king_pos)
+    board.modify_board(move[0], move[1], target_value || ' ')
+    board.modify_board(pos[0], pos[1], self)
     invalid
   end
 
@@ -283,7 +302,8 @@ class Piece
     return false unless enemy_king
 
     next_moves = find_moves
-    return false unless next_moves && next_moves.include?(enemy_king.pos)
+    return false unless next_moves
+    return false unless next_moves.include?(enemy_king.pos)
 
     enemy_king.checking_piece = self
     enemy_king.in_check = true
@@ -310,23 +330,25 @@ class Piece
     end
   end
 
-  def find_BRQ_moves
+  def find_moves_ranged
     valid_moves = []
     shift_set.each do |diagonal|
       diagonal.each do |shift|
-        move_info = find_move_info(shift)
-        next unless move_info
+        move_and_piece = check_move_validity(shift)
+        next unless move_and_piece
 
-        break if move_info[:piece] && move_info[:piece].color == color
+        move = move_and_piece[:move]
+        piece = move_and_piece[:piece]
+        break if piece && piece.color == color
 
-        valid_moves << move_info[:move]
-        break if move_info[:piece]
+        valid_moves << move
+        break if piece
       end
     end
-    valid_moves
+    valid_moves || false
   end
 
-  def find_move_info(shift)
+  def check_move_validity(shift)
     move = [pos[0] + shift[0], pos[1] + shift[1]]
     return false unless in_bounds?(move)
 
@@ -348,7 +370,7 @@ class Piece
     end
   end
 
-  def castle(king_pos)
+  def castle_rook(king_pos)
     y = king_pos[1]
     old_x = king_pos[0] < 5 ? 1 : 8
     new_x = old_x == 1 ? 4 : 6
@@ -387,10 +409,14 @@ class Pawn < Piece
     valid_attacks = []
     shifts = { 'White' => [[-1, 1], [1, 1]], 'Black' => [[-1, -1], [1, -1]] }
     shifts[color].each do |shift|
-      move_info = find_move_info(shift)
-      next unless move_info && move_info[:piece]
+      move_and_piece = check_move_validity(shift)
+      next unless move_and_piece
 
-      valid_attacks << move_info[:move] unless move_info[:piece].color == color
+      move = move_and_piece[:move]
+      piece = move_and_piece[:piece]
+      next unless piece
+
+      valid_attacks << move unless piece.color == color
     end
     valid_attacks.empty? ? [] : valid_attacks
   end
@@ -399,13 +425,14 @@ class Pawn < Piece
     passant_move = []
     shifts = [[-1, 0], [1, 0]]
     shifts.each do |shift|
-      move_info = find_move_info(shift)
-      next unless move_info
+      move_and_piece = check_move_validity(shift)
+      next unless move_and_piece
 
-      piece = move_info[:piece]
-      move = move_info[:move]
-      next unless piece && piece.name == 'P' && piece.passantable
+      piece = move_and_piece[:piece]
+      move = move_and_piece[:move]
+      next unless piece
       next if piece.color == color
+      next unless piece.is_a?(Pawn) && piece.passantable
 
       capture_move = { 'White' => [move[0], move[1] + 1], 'Black' => [move[0], move[1] - 1] }
       board.modify_board(move[0], move[1], ' ')
@@ -532,7 +559,7 @@ class King < Piece
     rook_positions = [[pos[0] - 4, pos[1]], [pos[0] + 3, pos[1]]]
     rook_positions.each do |r_pos|
       piece = board.space_filled?(r_pos)
-      next unless piece && piece.name == 'R'
+      next unless piece && piece.is_a?(Rook)
 
       unmoved_rooks << piece unless piece.moved
     end
