@@ -48,8 +48,8 @@ class Chess
   end
 
   def game_over
-    # to-do: expand upon
-    puts 'Game over.'
+    puts "No pieces available to move.\nGame over."
+    true
   end
 
   #private
@@ -238,11 +238,7 @@ class Piece
         next if moves.empty?
 
         valid_moves = []
-        if piece.is_a?(King)
-          valid_moves = find_king_moves_under_check(moves)
-        else
-          moves.each { |move| valid_moves << move unless invalid_move_under_check?(move, piece) }
-        end
+        moves.each { |move| valid_moves << move unless invalid_move_under_check?(move, piece) }
         pieces_and_moves[piece.pos] = valid_moves unless valid_moves.empty?
       end
     end
@@ -282,18 +278,15 @@ class Piece
     pinning_positions
   end
 
-  def find_king_moves_under_check(moves)
-    moves.reject { |move| board.is_threatened?(color, [move]) }
-  end
-
   def invalid_move_under_check?(move, piece)
+    king = piece.is_a?(King)
     king_pos = board.find_king(color)
     target_value = board.space_filled?(move)
-    return false if target_value == checking_piece
+    return false if target_value == checking_piece && king == false
 
     board.modify_board(move[0], move[1], piece)
     board.modify_board(piece.pos[0], piece.pos[1], ' ')
-    invalid = checking_piece.find_moves.include?(king_pos)
+    invalid = king ? board.is_threatened?(color, [move]) : checking_piece.find_moves.include?(king_pos)
     board.modify_board(move[0], move[1], target_value || ' ')
     board.modify_board(piece.pos[0], piece.pos[1], piece)
     invalid
@@ -606,4 +599,15 @@ class King < Piece
     end
     king_moves
   end
+end
+
+game = Chess.new
+one = Player.new(game, 'White', 'White')
+two = Player.new(game, 'Black', 'Black')
+loop do
+  game.print_board
+  break if one.move_piece
+
+  game.print_board
+  break if two.move_piece
 end
