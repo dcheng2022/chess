@@ -398,9 +398,12 @@ class Pawn < Piece
   def first_move
     return [] if moved
 
-    self.passantable = true
     shift = shift_set.flatten
-    [[pos[0], pos[1] + 2 * shift[1]]]
+    move = [[pos[0], pos[1] + 2 * shift[1]]]
+    return [] if board.space_filled?(move.flatten)
+
+    self.passantable = true
+    move
   end
 
   def pawn_attack
