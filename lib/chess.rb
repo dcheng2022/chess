@@ -188,7 +188,7 @@ class Piece
       valid_moves.concat(pawn_attack, en_passant)
       valid_moves.concat(first_move) unless simple_check
     when 'K'
-      valid_moves.concat(castle_king)
+      valid_moves.concat(castle_king) unless simple_check
       valid_moves.reject! { |move| board.is_threatened?(color, [move]) } unless simple_check
     end
     return valid_moves unless valid_moves.empty?
