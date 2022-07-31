@@ -3,7 +3,7 @@ require 'pry-byebug'
 class Chess
   def initialize
     @board = Array.new(8) { Array.new(8, ' ') }
-    # fill_board
+    fill_board
   end
 
   def space_filled?(pos)
