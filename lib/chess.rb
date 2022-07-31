@@ -3,7 +3,7 @@ require 'pry-byebug'
 class Chess
   def initialize
     @board = Array.new(8) { Array.new(8, ' ') }
-    fill_board
+    # fill_board
   end
 
   def space_filled?(pos)
@@ -49,6 +49,23 @@ class Chess
 
   def game_over
     puts "No pieces available to move.\nGame over."
+    true
+  end
+
+  def board_stalemate?(color)
+    board.each do |row|
+      row.each do |piece|
+        next unless piece.is_a?(Piece) && piece.color == color
+
+        moves = piece.find_moves
+        next unless moves
+
+        moves = piece.find_pinned_moves(moves)
+        next unless moves.length >= 1
+
+        return false
+      end
+    end
     true
   end
 
@@ -113,6 +130,7 @@ class Player
     print 'Enter location to select piece: '
     king = board.space_filled?(board.find_king(color))
     return select_piece_under_check(king) if king.in_check
+    return false if board.board_stalemate?(color)
 
     loop do
       pos = validate_input
@@ -185,8 +203,9 @@ class Piece
     end
     case name
     when 'P'
-      valid_moves.concat(pawn_attack, en_passant)
-      valid_moves.concat(first_move) unless simple_check
+      valid_moves = []
+      valid_moves.concat(pawn_attack)
+      valid_moves.concat(first_move, en_passant) unless simple_check
     when 'K'
       valid_moves.concat(castle_king) unless simple_check
       valid_moves.reject! { |move| board.is_threatened?(color, [move]) } unless simple_check
