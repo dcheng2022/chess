@@ -78,9 +78,13 @@ class Chess
     puts '   —————————————————————————————————'
     board.each_with_index do |row, y_idx|
       print "#{8 - y_idx}  | "
-      row.each do |space|
-        message = space == ' ' ? space : space.name
-        print "#{message} | "
+      row.each do |piece|
+        unless piece.is_a?(Piece)
+          print '  | '
+          next
+        end
+        char = piece.color == 'White' ? piece.white_char : piece.black_char
+        print "#{char} | "
       end
       puts "\n   —————————————————————————————————"
     end
@@ -158,7 +162,7 @@ class Player
 end
 
 class Piece
-  attr_reader :color, :shift_set, :name
+  attr_reader :color, :shift_set, :name, :white_char, :black_char
   attr_accessor :pos
 
   def initialize(board, color, pos)
@@ -385,6 +389,8 @@ class Pawn < Piece
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'P'
+    @white_char = '♙'
+    @black_char = '♟'
     @shift_set = create_shifts
     @moved = false
     @passantable = false
@@ -460,6 +466,8 @@ class Rook < Piece
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'R'
+    @white_char = '♖'
+    @black_char = '♜'
     @shift_set = create_shifts
     @moved = false
   end
@@ -479,6 +487,8 @@ class Knight < Piece
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'Kn'
+    @white_char = '♘'
+    @black_char = '♞'
     @shift_set = create_shifts
   end
 
@@ -493,6 +503,8 @@ class Bishop < Piece
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'B'
+    @white_char = '♗'
+    @black_char = '♝'
     @shift_set = create_shifts
   end
 
@@ -511,6 +523,8 @@ class Queen < Piece
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'Q'
+    @white_char = '♕'
+    @black_char = '♛'
     @shift_set = create_shifts
   end
 
@@ -527,6 +541,8 @@ class King < Piece
   def initialize(board, color, pos)
     super(board, color, pos)
     @name = 'K'
+    @white_char = '♔'
+    @black_char = '♚'
     @shift_set = create_shifts
     @in_check = false
     @checking_piece = false
