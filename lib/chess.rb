@@ -203,7 +203,7 @@ class Piece
     end
     case name
     when 'P'
-      valid_moves = []
+      valid_moves = [] if simple_check
       valid_moves.concat(pawn_attack)
       valid_moves.concat(first_move, en_passant) unless simple_check
     when 'K'
