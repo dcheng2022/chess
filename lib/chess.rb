@@ -185,7 +185,6 @@ class Piece
       valid_moves.concat(first_move) unless simple_check
     when 'K'
       valid_moves.concat(castle_king)
-      valid_moves.reject! { |move| invalid_move_under_check?(move) } unless in_check
       valid_moves.reject! { |move| board.is_threatened?(color, [move]) } unless simple_check
     end
     return valid_moves unless valid_moves.empty?
@@ -236,9 +235,9 @@ class Piece
 
         valid_moves = []
         if piece.is_a?(King)
-          valid_moves = find_king_moves_under_check
+          valid_moves = find_king_moves_under_check(moves)
         else
-          moves.each { |move| valid_moves << move unless piece.invalid_move_under_check?(move) }
+          moves.each { |move| valid_moves << move unless invalid_move_under_check?(move, piece) }
         end
         pieces_and_moves[piece.pos] = valid_moves unless valid_moves.empty?
       end
@@ -283,16 +282,16 @@ class Piece
     moves.reject { |move| board.is_threatened?(color, [move]) }
   end
 
-  def invalid_move_under_check?(move)
+  def invalid_move_under_check?(move, piece)
     king_pos = board.find_king(color)
     target_value = board.space_filled?(move)
     return false if target_value == checking_piece
 
-    board.modify_board(move[0], move[1], self)
-    board.modify_board(pos[0], pos[1], ' ')
+    board.modify_board(move[0], move[1], piece)
+    board.modify_board(piece.pos[0], piece.pos[1], ' ')
     invalid = checking_piece.find_moves.include?(king_pos)
     board.modify_board(move[0], move[1], target_value || ' ')
-    board.modify_board(pos[0], pos[1], self)
+    board.modify_board(piece.pos[0], piece.pos[1], piece)
     invalid
   end
 
@@ -559,7 +558,7 @@ class King < Piece
     rook_positions = [[pos[0] - 4, pos[1]], [pos[0] + 3, pos[1]]]
     rook_positions.each do |r_pos|
       piece = board.space_filled?(r_pos)
-      next unless piece && piece.is_a?(Rook)
+      next unless piece.is_a?(Rook)
 
       unmoved_rooks << piece unless piece.moved
     end
