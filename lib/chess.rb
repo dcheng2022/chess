@@ -306,7 +306,7 @@ class Piece
   end
 
   def shift_pinned_moves(moves, pinning_pos)
-    return unless %w[B R Q].include?(name)
+    return [] unless %w[B R Q].include?(name)
 
     if pos[0] == pinning_pos[0]
       moves.select { |move| move[0] == pos[0] }
