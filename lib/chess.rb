@@ -189,7 +189,7 @@ class Piece
     @pos = pos
   end
 
-  def find_moves(simple_check = false)
+  def find_moves(simple_check = false, pin_check = false)
     return find_moves_ranged || false if %w[B R Q].include?(name)
 
     valid_moves = []
@@ -204,8 +204,9 @@ class Piece
     case name
     when 'P'
       valid_moves = [] if simple_check
-      valid_moves.concat(pawn_attack)
-      valid_moves.concat(first_move, en_passant) unless simple_check
+      valid_moves.concat(first_move) unless simple_check
+      valid_moves.concat(pawn_attack) unless pin_check
+      valid_moves.concat(en_passant) unless pin_check || simple_check
     when 'K'
       valid_moves.concat(castle_king) unless simple_check
       valid_moves.reject! { |move| board.is_threatened?(color, [move]) } unless simple_check
@@ -219,6 +220,7 @@ class Piece
     piece = self
     case name
     when 'P'
+      self.passantable = true if (destination[1] - pos[1]).abs > 1
       promote_pawn = true if [1, 8].include?(destination[1])
       piece = promote_set[promote_input].new(board, color, destination) if promote_pawn
     when 'K'
@@ -235,6 +237,7 @@ class Piece
     pinning_positions = find_pinning_pieces
     return moves if pinning_positions.empty?
     return [] unless pinning_positions.length == 1
+    return find_moves(false, true) || [] if name == 'P'
 
     valid_moves = []
     moves.each { |move| valid_moves << move if move == pinning_positions.flatten }
@@ -421,7 +424,6 @@ class Pawn < Piece
     move = [[pos[0], pos[1] + 2 * shift[1]]]
     return [] if board.space_filled?(move.flatten)
 
-    self.passantable = true
     move
   end
 
