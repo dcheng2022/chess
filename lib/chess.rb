@@ -228,7 +228,7 @@ class Piece
       value = idx.zero? ? ' ' : piece
       board.modify_board(location[0], location[1], value)
     end
-    change_pos_auxiliary(destination)
+    change_pos_auxiliary(destination, piece)
   end
 
   def find_pinned_moves(moves)
@@ -268,13 +268,13 @@ class Piece
 
   attr_reader :board
 
-  def change_pos_auxiliary(destination)
+  def change_pos_auxiliary(destination, piece)
     disable_passantable
-    self.moved = true if %w[P R K].include?(name)
-    self.pos = destination
+    piece.moved = true if %w[P R K].include?(piece.name)
+    piece.pos = destination
     king = board.space_filled?(board.find_king(color))
     king.in_check = false if king.in_check
-    enemy_king_checked?
+    enemy_king_checked?(piece)
   end
 
   def find_pinning_pieces
@@ -311,16 +311,16 @@ class Piece
     invalid
   end
 
-  def enemy_king_checked?
+  def enemy_king_checked?(piece)
     opp_colors = { 'White' => 'Black', 'Black' => 'White' }
     enemy_king = board.space_filled?(board.find_king(opp_colors[color]))
     return false unless enemy_king
 
-    next_moves = find_moves
+    next_moves = piece.find_moves
     return false unless next_moves
     return false unless next_moves.include?(enemy_king.pos)
 
-    enemy_king.checking_piece = self
+    enemy_king.checking_piece = piece
     enemy_king.in_check = true
   end
 
